@@ -1,0 +1,7 @@
+build/
+*.vtk
+*.vtr
+
+CLAUDE.md
+P0_navier_stokes_solver.md
+PLAN.md
