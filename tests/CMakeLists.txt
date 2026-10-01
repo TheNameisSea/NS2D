@@ -5,7 +5,7 @@ include(FetchContent)
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.16.0 # Replace with the latest stable version if desired
+  GIT_TAG        v3.16.0 
   GIT_SHALLOW TRUE
   )
 
