@@ -1,0 +1,24 @@
+name: cppNavierStokesSolver
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out your repository code onto the runner
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Configure, build, and test
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build -j4
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
