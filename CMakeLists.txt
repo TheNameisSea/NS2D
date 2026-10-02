@@ -19,7 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add the source files for the library
-add_library(ns2d STATIC src/ns2d.cpp)
+add_library(ns2d STATIC src/ns2d.cpp src/grid.cpp)
 target_include_directories(ns2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 # Add the executable for the hello app
