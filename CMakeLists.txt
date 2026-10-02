@@ -19,16 +19,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add the source files for the library
-add_library(ns2d STATIC src/ns2d.cpp src/grid.cpp)
+add_library(ns2d STATIC src/grid.cpp src/field.cpp)
 target_include_directories(ns2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/)
-
-# Add the executable for the hello app
-add_executable(hello apps/hello.cpp)
-target_link_libraries(hello PRIVATE ns2d)
 
 add_library(ns2d_warnings INTERFACE)
 target_compile_options(ns2d_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
-target_link_libraries(hello PRIVATE ns2d_warnings)
 target_link_libraries(ns2d PRIVATE ns2d_warnings)
 
 # Test section
