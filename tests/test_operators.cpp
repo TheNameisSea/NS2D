@@ -141,3 +141,71 @@ TEST_CASE("Laplacian converges with second order", "[operators]") {
         CHECK_THAT(std::log2(e32 / e64), Catch::Matchers::WithinAbs(2.0, 0.1));
     }
 }
+
+TEST_CASE("Interpolation between u and v points is exact for linear fields", "[operators]") {
+    const Grid g(4, 3, 2.0, 1.0);
+
+    // Averaging 4 surrounding points is exact for any linear function
+    auto linear = [](double x, double y) { return 3.0 * x + 2.0 * y + 1.0; };
+
+    SECTION("v interpolated to u points") {
+        Field v(g);
+        fillExact(v, g, Staggering::VFace, linear);
+
+        const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::UFace);
+        for (int j = j0; j <= j1; ++j) {
+            for (int i = i0; i <= i1; ++i) {
+                INFO("i = " << i << ", j = " << j);
+                const auto [x, y] = position(g, Staggering::UFace, i, j);
+                CHECK_THAT(vAtU(v, i, j), Catch::Matchers::WithinAbs(linear(x, y), 1e-12));
+            }
+        }
+    }
+
+    SECTION("u interpolated to v points") {
+        Field u(g);
+        fillExact(u, g, Staggering::UFace, linear);
+
+        const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::VFace);
+        for (int j = j0; j <= j1; ++j) {
+            for (int i = i0; i <= i1; ++i) {
+                INFO("i = " << i << ", j = " << j);
+                const auto [x, y] = position(g, Staggering::VFace, i, j);
+                CHECK_THAT(uAtV(u, i, j), Catch::Matchers::WithinAbs(linear(x, y), 1e-12));
+            }
+        }
+    }
+}
+
+TEST_CASE("derivative is exact for quadratics", "[operators]") {
+    const Grid g(4, 3, 2.0, 1.0);
+    const Staggering s = Staggering::UFace;
+
+    // Central and second-order upwind are both exact for quadratics,
+    // so any wrong coefficient, sign, branch or spacing shows up here.
+    // Wrong fallback logic shows up as an index assert in Debug builds.
+    Field fx(g);
+    Field fy(g);
+    fillExact(fx, g, s, [](double x, double) { return x * x; });
+    fillExact(fy, g, s, [](double, double y) { return y * y; });
+
+    const auto [i0, i1, j0, j1] = interiorRange(g, s);
+
+    for (AdvectionScheme scheme : {AdvectionScheme::Central, AdvectionScheme::Upwind2}) {
+        for (double a : {1.0, -1.0}) {
+            INFO("scheme = " << static_cast<int>(scheme) << ", a = " << a);
+
+            for (int j = j0; j <= j1; ++j) {
+                for (int i = i0; i <= i1; ++i) {
+                    INFO("i = " << i << ", j = " << j);
+                    const auto [x, y] = position(g, s, i, j);
+
+                    CHECK_THAT(derivative(fx, i, j, 1, 0, g.getDx(), a, scheme),
+                               Catch::Matchers::WithinAbs(2.0 * x, 1e-10));
+                    CHECK_THAT(derivative(fy, i, j, 0, 1, g.getDy(), a, scheme),
+                               Catch::Matchers::WithinAbs(2.0 * y, 1e-10));
+                }
+            }
+        }
+    }
+}

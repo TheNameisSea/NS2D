@@ -51,4 +51,26 @@ void laplacian(const Field& f, const Grid& g, Staggering s, Field& out){
     }
 }
 
+double derivative(const Field& f, int i, int j, int di, int dj, double h, double a, AdvectionScheme scheme){
 
+    // 1. Central difference: always available (1 neighbour each side)
+    const double central = ( f(i+di, j+dj) - f(i-di, j-dj) ) / (2*h);
+
+    if (scheme == AdvectionScheme::Central){
+        return central;
+    }
+
+    // 2. Upwind2 needs 2 neighbours. Do they exist on BOTH sides?
+    const bool fits = (i - 2*di >= 0) && (i + 2*di <= f.getNi() - 1)
+                    && (j - 2*dj >= 0) && (j + 2*dj <= f.getNj() - 1);
+    if (!fits){
+        return central;                        // fallback near the boundary
+    }
+    // 3. Pick the upstream side by the sign of a
+    if (a > 0){
+        return (3 * f(i,j) - 4 * f(i-di, j-dj) + f(i-2*di, j-2*dj) ) / (2*h);
+    }
+    else{
+        return ( -3 * f(i,j) + 4 * f(i+di, j+dj) - f(i+2*di, j+2*dj) ) / (2*h);
+    }
+}

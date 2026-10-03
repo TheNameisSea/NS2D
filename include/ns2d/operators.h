@@ -10,6 +10,11 @@ enum class Staggering {
 
 };
 
+enum class AdvectionScheme {
+    Central,
+    Upwind2
+};
+
 struct IndexRange {
 
     int iBegin{};
@@ -22,5 +27,14 @@ struct IndexRange {
 IndexRange interiorRange(const Grid&, Staggering);
 
 void laplacian(const Field& f, const Grid& g, Staggering s, Field& out);
+
+inline double uAtV(const Field& u, int i, int j){
+    return  0.25 * ( u(i-1, j+1) + u(i, j+1) + u(i, j) + u(i-1, j) );
+}
+inline double vAtU(const Field& v, int i, int j){
+    return  0.25 * ( v(i, j) + v(i+1, j) + v(i, j-1) + v(i+1, j-1) );
+}
+
+double derivative(const Field& f, int i, int j, int di, int dj, double h, double a, AdvectionScheme scheme);
 
 
