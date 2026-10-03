@@ -209,3 +209,68 @@ TEST_CASE("derivative is exact for quadratics", "[operators]") {
         }
     }
 }
+
+namespace {
+
+// Manufactured velocities for the advection test (not divergence-free; we only test the operator)
+double exactU(double x, double y) { return std::sin(pi * x) * std::cos(pi * y); }
+double exactV(double x, double y) { return std::cos(pi * x) * std::sin(2.0 * pi * y); }
+
+// Exact (u·∇)u and (u·∇)v for the fields above
+double exactAdvU(double x, double y) {
+    const double ux = pi * std::cos(pi * x) * std::cos(pi * y);
+    const double uy = -pi * std::sin(pi * x) * std::sin(pi * y);
+    return exactU(x, y) * ux + exactV(x, y) * uy;
+}
+
+double exactAdvV(double x, double y) {
+    const double vx = -pi * std::sin(pi * x) * std::sin(2.0 * pi * y);
+    const double vy = 2.0 * pi * std::cos(pi * x) * std::cos(2.0 * pi * y);
+    return exactU(x, y) * vx + exactV(x, y) * vy;
+}
+
+// Max-norm error of advectionU (s = UFace) or advectionV (s = VFace) on an N x N grid with dx != dy
+double maxAdvectionError(int N, AdvectionScheme scheme, Staggering s) {
+    const Grid g(N, N, 2.0, 1.0);
+    Field u(g);
+    Field v(g);
+    Field out(g);
+    fillExact(u, g, Staggering::UFace, exactU);
+    fillExact(v, g, Staggering::VFace, exactV);
+
+    if (s == Staggering::UFace) {
+        advectionU(u, v, g, scheme, out);
+    } else {
+        advectionV(u, v, g, scheme, out);
+    }
+
+    double err = 0.0;
+    const auto [i0, i1, j0, j1] = interiorRange(g, s);
+    for (int j = j0; j <= j1; ++j) {
+        for (int i = i0; i <= i1; ++i) {
+            const auto [x, y] = position(g, s, i, j);
+            const double exact = (s == Staggering::UFace) ? exactAdvU(x, y) : exactAdvV(x, y);
+            err = std::max(err, std::abs(out(i, j) - exact));
+        }
+    }
+    return err;
+}
+
+} // namespace
+
+TEST_CASE("Advection converges with second order", "[operators]") {
+    for (AdvectionScheme scheme : {AdvectionScheme::Central, AdvectionScheme::Upwind2}) {
+        for (Staggering s : {Staggering::UFace, Staggering::VFace}) {
+            INFO("scheme = " << static_cast<int>(scheme) << ", staggering = " << static_cast<int>(s));
+
+            const double e16 = maxAdvectionError(16, scheme, s);
+            const double e32 = maxAdvectionError(32, scheme, s);
+            const double e64 = maxAdvectionError(64, scheme, s);
+            INFO("errors: " << e16 << " " << e32 << " " << e64);
+
+            // One-sided: upwind converges slightly faster than 2 on coarse grids
+            CHECK(std::log2(e16 / e32) > 1.85);
+            CHECK(std::log2(e32 / e64) > 1.85);
+        }
+    }
+}

@@ -74,3 +74,37 @@ double derivative(const Field& f, int i, int j, int di, int dj, double h, double
         return ( -3 * f(i,j) + 4 * f(i+di, j+dj) - f(i+2*di, j+2*dj) ) / (2*h);
     }
 }
+
+void advectionU(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out){
+
+    assert((u.size() == v.size()) && (u.size() == out.size()));
+    
+    const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::UFace);
+    for (int j = j0; j <= j1; ++j){
+        for (int i = i0;  i<= i1; ++i){
+
+            double a = u(i, j);
+            double b = vAtU(v, i, j);
+            out(i, j) = a * derivative(u, i,j, 1,0, g.getDx(), a, scheme) + b * derivative(u, i,j, 0,1, g.getDy(), b, scheme);
+
+        }
+    }
+
+}
+void advectionV(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out) {
+
+    assert((u.size() == v.size()) && (u.size() == out.size()));
+    
+    const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::VFace);
+    for (int j = j0; j <= j1; ++j){
+        for (int i = i0; i <= i1; ++i){
+
+            const double a = uAtV(u, i, j);
+            const double b = v(i, j);
+            out(i, j) = a * derivative(v, i,j, 1,0, g.getDx(), a, scheme) + b * derivative(v, i,j, 0,1, g.getDy(), b, scheme);
+
+        }
+    }
+}
+
+

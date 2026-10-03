@@ -37,4 +37,9 @@ inline double vAtU(const Field& v, int i, int j){
 
 double derivative(const Field& f, int i, int j, int di, int dj, double h, double a, AdvectionScheme scheme);
 
+// out holds +(u·∇)u
+void advectionU(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out);
+void advectionV(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out);
+
+
 
