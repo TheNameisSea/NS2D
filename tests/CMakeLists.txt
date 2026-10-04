@@ -38,3 +38,7 @@ catch_discover_tests(test_projection)
 add_executable(test_simulation test_simulation.cpp)
 target_link_libraries(test_simulation PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
 catch_discover_tests(test_simulation)
+
+add_executable(test_poisson test_poisson.cpp)
+target_link_libraries(test_poisson PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
+catch_discover_tests(test_poisson)

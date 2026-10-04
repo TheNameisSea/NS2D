@@ -19,7 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add the source files for the library
-add_library(ns2d STATIC src/grid.cpp src/field.cpp src/boundary.cpp src/operators.cpp src/projection.cpp src/simulation.cpp)
+add_library(ns2d STATIC src/grid.cpp src/field.cpp src/boundary.cpp src/operators.cpp src/projection.cpp src/simulation.cpp src/poisson.cpp)
 target_include_directories(ns2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_library(ns2d_warnings INTERFACE)
