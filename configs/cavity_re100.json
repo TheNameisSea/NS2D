@@ -1,0 +1,10 @@
+{
+  "grid":    { "nx": 32, "ny": 32, "Lx": 1.0, "Ly": 1.0 },
+  "Re": 100,
+  "lidVelocity": 1.0,
+  "scheme": "upwind2",
+  "cfl": 0.5,
+  "poisson": { "solver": "jacobi", "tol": 1e-8, "maxIter": 100000 },
+  "steady":  { "tol": 1e-6, "maxSteps": 200000 },
+  "output":  { "printEvery": 100 }
+}

@@ -16,11 +16,21 @@ struct SimulationParams {
     double cfl{0.5};
 };
 
+
+struct StepInfo {
+    double dt{};
+    double time{};
+    int poissonIterations{};
+    double poissonResidual{};
+    double change{};
+};
+
 class Simulation {
     private:
         Grid grid;                 // must be declared FIRST
         SimulationParams params;
         Field u, v, p;
+        Field uOld, vOld;
         Field uStar, vStar;
         Field div, rhs;
         PredictorWork work;
@@ -45,7 +55,11 @@ class Simulation {
 
         Field& getU();
 
-        double step();
+        StepInfo step();
 
 };
+
+
+
+
 

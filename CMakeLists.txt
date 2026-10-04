@@ -18,13 +18,32 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(FetchContent)
+
+FetchContent_Declare(json 
+                    URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+                    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+                    SYSTEM)
+FetchContent_MakeAvailable(json)
+
 # Add the source files for the library
-add_library(ns2d STATIC src/grid.cpp src/field.cpp src/boundary.cpp src/operators.cpp src/projection.cpp src/simulation.cpp src/poisson.cpp)
+add_library(ns2d STATIC src/grid.cpp src/field.cpp src/boundary.cpp 
+                        src/operators.cpp src/projection.cpp 
+                        src/simulation.cpp src/poisson.cpp)
 target_include_directories(ns2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_library(ns2d_warnings INTERFACE)
 target_compile_options(ns2d_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 target_link_libraries(ns2d PRIVATE ns2d_warnings)
+
+add_library(ns2d_io STATIC src/io/config.cpp)
+target_link_libraries(ns2d_io PUBLIC ns2d)
+target_link_libraries(ns2d_io PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(ns2d_io PRIVATE ns2d_warnings)
+
+add_executable(cavity apps/cavity.cpp)
+target_link_libraries(cavity PRIVATE ns2d_io ns2d_warnings)
+
 
 # Test section
 option(NS2D_BUILD_TESTS "Build unit tests" ON)

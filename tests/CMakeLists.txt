@@ -1,44 +1,35 @@
-# Include the FetchContent module
+# Catch2 (test framework)
 include(FetchContent)
 
-# Declare Catch2 dependency
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.16.0 
-  GIT_SHALLOW TRUE
-  )
-
-# Make Catch2 available to the build graph
+  GIT_TAG        v3.16.0
+  GIT_SHALLOW    TRUE
+)
 FetchContent_MakeAvailable(Catch2)
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 
-add_executable(test_grid test_grid.cpp )
-target_link_libraries(test_grid PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
+# ns2d_add_test(<name> <library>)
+# Builds tests/<name>.cpp into an executable linked to <library>, Catch2 and our
+# warnings, and registers every TEST_CASE in it with ctest.
+function(ns2d_add_test name library)
+  add_executable(${name} ${name}.cpp)
+  target_link_libraries(${name} PRIVATE ${library} Catch2::Catch2WithMain ns2d_warnings)
+  catch_discover_tests(${name})
+endfunction()
 
-add_executable(test_field test_field.cpp )
-target_link_libraries(test_field PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
+# Physics library tests
+ns2d_add_test(test_grid       ns2d)
+ns2d_add_test(test_field      ns2d)
+ns2d_add_test(test_bc         ns2d)
+ns2d_add_test(test_operators  ns2d)
+ns2d_add_test(test_projection ns2d)
+ns2d_add_test(test_poisson    ns2d)
+ns2d_add_test(test_simulation ns2d)
 
-add_executable(test_bc test_bc.cpp )
-target_link_libraries(test_bc PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
-
-add_executable(test_operators test_operators.cpp )
-target_link_libraries(test_operators PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
-
-catch_discover_tests(test_grid)
-catch_discover_tests(test_field)
-catch_discover_tests(test_bc)
-catch_discover_tests(test_operators)
-add_executable(test_projection test_projection.cpp)
-target_link_libraries(test_projection PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
-catch_discover_tests(test_projection)
-
-add_executable(test_simulation test_simulation.cpp)
-target_link_libraries(test_simulation PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
-catch_discover_tests(test_simulation)
-
-add_executable(test_poisson test_poisson.cpp)
-target_link_libraries(test_poisson PRIVATE ns2d Catch2::Catch2WithMain ns2d_warnings)
-catch_discover_tests(test_poisson)
+# I/O library tests
+ns2d_add_test(test_config ns2d_io)
+target_compile_definitions(test_config PRIVATE NS2D_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

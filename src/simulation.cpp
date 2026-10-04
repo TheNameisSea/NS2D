@@ -1,8 +1,10 @@
 #include "ns2d/simulation.h"
+#include <algorithm>
+#include <cmath>
 
 Simulation::Simulation(const Grid& grid_, const SimulationParams& params_) 
                         : grid(grid_), params(params_), u(grid), v(grid), p(grid),
-                        uStar(grid), vStar(grid), div(grid), rhs(grid), work(grid), 
+                        uOld(grid), vOld(grid), uStar(grid), vStar(grid), div(grid), rhs(grid), work(grid), 
                         solver(std::make_unique<JacobiSolver>(grid, params.poissonMaxIter)), dt(params.dt){
 
     applyBoundaryConditions();
@@ -72,10 +74,42 @@ SolveResult Simulation::project(){
 
 }
 
-double Simulation::step(){
+StepInfo Simulation::step(){
+
+    uOld = u; 
+    vOld = v;
+
     dt = (params.adaptiveDt) ? computeDt(u, v, grid, params.Re, params.cfl) : params.dt;
     predict();
-    project();
+    const SolveResult res = project();
     time += dt;
-    return dt;              // handy for logging
+    
+    double max_change_u{0.0};
+    {
+        const auto[i0, i1, j0, j1] = interiorRange(grid, Staggering::UFace);
+
+        for (int j = j0; j <= j1; ++j){
+            for (int i = i0; i <= i1; ++i){
+                max_change_u = std::max(max_change_u, std::abs(u(i,j) - uOld(i,j))/dt);
+            }
+        }   
+    } 
+    double max_change_v{0.0};
+    {
+        const auto[i0, i1, j0, j1] = interiorRange(grid, Staggering::VFace);
+
+        for (int j = j0; j <= j1; ++j){
+            for (int i = i0; i <= i1; ++i){
+                max_change_v = std::max(max_change_v, std::abs(v(i,j) - vOld(i,j))/dt);
+            }
+        }   
+    } 
+    double change = std::max(max_change_u, max_change_v);
+
+    return StepInfo{.dt = dt, .time=time, .poissonIterations=res.iterations, .poissonResidual=res.residual, .change=change};
+
+
 }
+
+
+
