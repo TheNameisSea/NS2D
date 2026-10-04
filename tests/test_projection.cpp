@@ -2,6 +2,10 @@
 #include "ns2d/field.h"
 #include "ns2d/operators.h"
 #include "ns2d/projection.h"
+#include "ns2d/poisson.h"
+#include "ns2d/boundary.h"
+#include <algorithm>
+#include <random>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
@@ -122,6 +126,118 @@ TEST_CASE("Predictor combines operators with the right signs and factors", "[pro
                 }
                 if (!insideRange(rv, i, j)) {
                     CHECK(vStar(i, j) == v(i, j));
+                }
+            }
+        }
+    }
+}
+
+namespace {
+
+double maxAbsInterior(const Field& f, const Grid& g) {
+    double m = 0.0;
+    for (int j = 1; j <= g.getNy(); ++j) {
+        for (int i = 1; i <= g.getNx(); ++i) {
+            m = std::max(m, std::abs(f(i, j)));
+        }
+    }
+    return m;
+}
+
+} // namespace
+
+TEST_CASE("Divergence is exact for linear velocity fields", "[projection]") {
+    const Grid g(6, 4, 2.0, 1.0);
+    Field u(g);
+    Field v(g);
+    fillU(u, g, [](double x, double) { return 3.0 * x; });
+    fillV(v, g, [](double, double y) { return -2.0 * y + 1.0; });
+
+    Field div(g, -999.0);
+    divergence(u, v, g, div);
+
+    // du/dx + dv/dy = 3 - 2 = 1 at every cell
+    for (int j = 1; j <= g.getNy(); ++j) {
+        for (int i = 1; i <= g.getNx(); ++i) {
+            INFO("i = " << i << ", j = " << j);
+            CHECK_THAT(div(i, j), Catch::Matchers::WithinAbs(1.0, 1e-12));
+        }
+    }
+    // Ghosts of the output are not written
+    CHECK(div(0, 1) == -999.0);
+    CHECK(div(g.getNx() + 1, 1) == -999.0);
+}
+
+TEST_CASE("Projection removes the divergence of a random velocity field", "[projection]") {
+    const Grid g(16, 12, 2.0, 1.0);   // non-square, dx != dy
+    const int nx = g.getNx();
+    const int ny = g.getNy();
+    const double dt = 0.01;
+
+    // Random u*, v*, then closed walls: normal wall velocities become 0
+    Field uStar(g);
+    Field vStar(g);
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<double> dis(-1.0, 1.0);
+    std::generate(uStar.values().begin(), uStar.values().end(), [&]() { return dis(gen); });
+    std::generate(vStar.values().begin(), vStar.values().end(), [&]() { return dis(gen); });
+    const BoundaryConditions walls{};
+    walls.applyNoSlipWall(uStar, vStar, g);
+
+    Field div(g);
+    divergence(uStar, vStar, g, div);
+    const double divBefore = maxAbsInterior(div, g);
+
+    Field rhs(g, 0.0);
+    for (int j = 1; j <= ny; ++j) {
+        for (int i = 1; i <= nx; ++i) {
+            rhs(i, j) = div(i, j) / dt;
+        }
+    }
+
+    Field p(g, 0.0);
+    JacobiSolver jacobi(g, 500000);
+    const SolveResult res = jacobi.solve(rhs, p, 1e-10);
+    INFO("Jacobi iterations = " << res.iterations << ", residual = " << res.residual);
+    REQUIRE(res.residual < 1e-10);
+
+    // Start u, v from garbage: the corrector must produce a complete result on its own
+    Field u(g, 123.0);
+    Field v(g, 123.0);
+    corrector(uStar, vStar, p, g, dt, u, v);
+
+    SECTION("divergence is removed down to solver tolerance") {
+        divergence(u, v, g, div);
+        const double divAfter = maxAbsInterior(div, g);
+        INFO("max|div u*| = " << divBefore << ", max|div u| = " << divAfter);
+        CHECK(divBefore > 1.0);                   // the test field really was divergent
+        CHECK(divAfter / divBefore < 1e-8);
+    }
+
+    SECTION("wall normal velocities stay zero") {
+        for (int j = 1; j <= ny; ++j) {
+            INFO("j = " << j);
+            CHECK(u(0, j) == 0.0);
+            CHECK(u(nx, j) == 0.0);
+        }
+        for (int i = 1; i <= nx; ++i) {
+            INFO("i = " << i);
+            CHECK(v(i, 0) == 0.0);
+            CHECK(v(i, ny) == 0.0);
+        }
+    }
+
+    SECTION("ghosts and walls are copied from u*, v*") {
+        const IndexRange ru = interiorRange(g, Staggering::UFace);
+        const IndexRange rv = interiorRange(g, Staggering::VFace);
+        for (int j = 0; j <= g.getNj() - 1; ++j) {
+            for (int i = 0; i <= g.getNi() - 1; ++i) {
+                INFO("i = " << i << ", j = " << j);
+                if (!insideRange(ru, i, j)) {
+                    CHECK(u(i, j) == uStar(i, j));
+                }
+                if (!insideRange(rv, i, j)) {
+                    CHECK(v(i, j) == vStar(i, j));
                 }
             }
         }
