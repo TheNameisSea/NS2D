@@ -2,6 +2,8 @@
 #include "ns2d/field.h"
 #include "ns2d/operators.h"
 #include <cassert>
+#include <cmath>
+#include <algorithm>
 
     
 PredictorWork::PredictorWork(const Grid& g) : advU(g), advV(g), lapU(g), lapV(g){
@@ -88,5 +90,39 @@ void corrector(const Field& uStar, const Field& vStar, const Field& p,
             }
         }
     }
+
+}
+
+double maxAbs(const Field& f, const IndexRange& range) {
+    double fMax{};
+    const auto [i0, i1, j0, j1] = range;
+    for (int j = j0; j <= j1; ++j){
+        for (int i = i0; i <= i1; ++i){
+            fMax = std::max(fMax, std::abs(f(i, j)));
+        }
+    }
+    return fMax;
+}
+
+double computeDt(const Field& u, const Field& v, const Grid& g, double Re, double cfl){
+
+    const double dx = g.getDx();
+    const double dy = g.getDy();
+
+    
+
+    // uMax ← max |u(i,j)| over interiorRange(g, UFace)
+    // vMax ← max |v(i,j)| over interiorRange(g, VFace)
+    const double uMax{maxAbs(u, interiorRange(g, Staggering::UFace))};
+    const double vMax{maxAbs(v, interiorRange(g, Staggering::VFace))};
+
+    const double dtDiff = 0.5 * Re / (1/(dx*dx) + 1/(dy*dy));
+
+    const double rate = uMax/dx + vMax/dy;          // "how many cells per unit time"
+    if (rate == 0){                       // fluid at rest
+        return dtDiff;
+    }
+    const double dtAdv = cfl / rate;
+    return std::min(dtAdv, dtDiff);
 
 }

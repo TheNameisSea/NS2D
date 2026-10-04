@@ -12,6 +12,8 @@ struct SimulationParams {
     BoundaryConditions bc{ .top = 1.0 };    // lid-driven cavity by default
     int poissonMaxIter{100000};
     double poissonTol{1e-8};
+    bool adaptiveDt{true};
+    double cfl{0.5};
 };
 
 class Simulation {
@@ -23,6 +25,8 @@ class Simulation {
         Field div, rhs;
         PredictorWork work;
         std::unique_ptr<PoissonSolver> solver;
+        double dt{};
+        double time{0.0};
 
     public:
         Simulation(const Grid& g, const SimulationParams& prm);
@@ -31,12 +35,17 @@ class Simulation {
         void applyBoundaryConditions();
         void predict();
 
+
         const Field& getU() const;
         const Field& getV() const;
         const Field& getUStar() const;
         const Field& getVStar() const;
+        double getTime() const;
+        double getDt() const;
 
         Field& getU();
+
+        double step();
 
 };
 

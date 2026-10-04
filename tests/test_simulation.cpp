@@ -95,3 +95,51 @@ TEST_CASE("One full time step: project() makes the cavity flow divergence-free",
         CHECK(topRowSum > 0.0);
     }
 }
+
+TEST_CASE("step() advances time by the adaptive dt", "[simulation]") {
+    const Grid g(16, 16, 1.0, 1.0);
+    const SimulationParams params{};            // adaptiveDt = true, cfl = 0.5, Re = 100
+    Simulation sim(g, params);
+
+    const double dtExpected = computeDt(sim.getU(), sim.getV(), g, params.Re, params.cfl);
+    const double dt = sim.step();
+
+    CHECK(dt == dtExpected);
+    CHECK(sim.getDt() == dt);
+    CHECK(sim.getTime() == dt);
+
+    const double dt2 = sim.step();
+    CHECK_THAT(sim.getTime(), Catch::Matchers::WithinRel(dt + dt2, 1e-14));
+}
+
+TEST_CASE("step() uses the fixed dt when adaptiveDt is off", "[simulation]") {
+    const Grid g(8, 8, 1.0, 1.0);
+    const SimulationParams params{.dt = 0.002, .adaptiveDt = false};
+    Simulation sim(g, params);
+
+    CHECK(sim.step() == 0.002);
+    CHECK(sim.getDt() == 0.002);
+    sim.step();
+    CHECK_THAT(sim.getTime(), Catch::Matchers::WithinRel(0.004, 1e-14));
+}
+
+TEST_CASE("Cavity stays stable for 200 adaptive steps", "[simulation]") {
+    const Grid g(16, 16, 1.0, 1.0);
+    Simulation sim(g, SimulationParams{});
+
+    for (int n = 0; n < 200; ++n) {
+        sim.step();
+    }
+
+    const Field& u = sim.getU();
+    const Field& v = sim.getV();
+    const double uMax = maxAbs(u, interiorRange(g, Staggering::UFace));
+    const double vMax = maxAbs(v, interiorRange(g, Staggering::VFace));
+    INFO("t = " << sim.getTime() << ", max|u| = " << uMax << ", max|v| = " << vMax);
+
+    CHECK(std::isfinite(uMax));
+    CHECK(std::isfinite(vMax));
+    CHECK(uMax < 1.5);                          // lid speed is 1
+    CHECK(vMax < 1.5);
+    CHECK(maxAbsDivergence(u, v, g) < 1e-6);   // still incompressible
+}

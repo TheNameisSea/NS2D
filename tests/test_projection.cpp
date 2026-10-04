@@ -243,3 +243,77 @@ TEST_CASE("Projection removes the divergence of a random velocity field", "[proj
         }
     }
 }
+
+namespace {
+
+// Set every interior u and v value (ghosts are left as they are)
+void setInterior(Field& u, Field& v, const Grid& g, double uVal, double vVal) {
+    const IndexRange ru = interiorRange(g, Staggering::UFace);
+    const IndexRange rv = interiorRange(g, Staggering::VFace);
+    for (int j = ru.jBegin; j <= ru.jEnd; ++j) {
+        for (int i = ru.iBegin; i <= ru.iEnd; ++i) {
+            u(i, j) = uVal;
+        }
+    }
+    for (int j = rv.jBegin; j <= rv.jEnd; ++j) {
+        for (int i = rv.iBegin; i <= rv.iEnd; ++i) {
+            v(i, j) = vVal;
+        }
+    }
+}
+
+} // namespace
+
+TEST_CASE("computeDt picks the stricter of the advective and diffusive limits", "[projection]") {
+    const Grid g(8, 8, 2.0, 1.0);   // dx = 0.25, dy = 0.125
+    const double dx = g.getDx();
+    const double dy = g.getDy();
+    const double cfl = 0.5;
+    Field u(g, 0.0);
+    Field v(g, 0.0);
+
+    SECTION("fluid at rest: diffusive limit") {
+        const double Re = 100.0;
+        const double dtDiff = 0.5 * Re / (1.0 / (dx * dx) + 1.0 / (dy * dy));
+        CHECK_THAT(computeDt(u, v, g, Re, cfl), Catch::Matchers::WithinRel(dtDiff, 1e-12));
+    }
+
+    SECTION("fast x-flow: advective limit") {
+        const double Re = 1000.0;
+        setInterior(u, v, g, 100.0, 0.0);
+        CHECK_THAT(computeDt(u, v, g, Re, cfl), Catch::Matchers::WithinRel(cfl * dx / 100.0, 1e-12));
+    }
+
+    SECTION("both components count") {
+        const double Re = 1000.0;
+        setInterior(u, v, g, 100.0, 50.0);
+        const double expected = cfl / (100.0 / dx + 50.0 / dy);
+        CHECK_THAT(computeDt(u, v, g, Re, cfl), Catch::Matchers::WithinRel(expected, 1e-12));
+    }
+
+    SECTION("negative velocities count by magnitude") {
+        const double Re = 1000.0;
+        setInterior(u, v, g, -100.0, -50.0);
+        const double expected = cfl / (100.0 / dx + 50.0 / dy);
+        CHECK_THAT(computeDt(u, v, g, Re, cfl), Catch::Matchers::WithinRel(expected, 1e-12));
+    }
+
+    SECTION("doubling the speed halves dt in the advective regime") {
+        const double Re = 1000.0;
+        setInterior(u, v, g, 100.0, 50.0);
+        const double dt1 = computeDt(u, v, g, Re, cfl);
+        setInterior(u, v, g, 200.0, 100.0);
+        const double dt2 = computeDt(u, v, g, Re, cfl);
+        CHECK_THAT(dt2, Catch::Matchers::WithinRel(0.5 * dt1, 1e-12));
+    }
+
+    SECTION("ghost values are ignored") {
+        const double Re = 1000.0;
+        setInterior(u, v, g, 1.0, 0.0);
+        const double dtClean = computeDt(u, v, g, Re, cfl);
+        u(1, 0) = 1000.0;                       // bottom ghost
+        u(1, g.getNy() + 1) = 1000.0;           // lid ghost
+        v(0, 1) = 1000.0;                       // left ghost
+        CHECK(computeDt(u, v, g, Re, cfl) == dtClean);
+    }
+}

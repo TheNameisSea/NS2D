@@ -3,7 +3,7 @@
 Simulation::Simulation(const Grid& grid_, const SimulationParams& params_) 
                         : grid(grid_), params(params_), u(grid), v(grid), p(grid),
                         uStar(grid), vStar(grid), div(grid), rhs(grid), work(grid), 
-                        solver(std::make_unique<JacobiSolver>(grid, params.poissonMaxIter)){
+                        solver(std::make_unique<JacobiSolver>(grid, params.poissonMaxIter)), dt(params.dt){
 
     applyBoundaryConditions();
 
@@ -15,7 +15,7 @@ void Simulation::applyBoundaryConditions(){
 
 void Simulation::predict() {
     applyBoundaryConditions();
-    predictor(u, v, grid, params.dt, params.Re, params.scheme, work, uStar, vStar);
+    predictor(u, v, grid, dt, params.Re, params.scheme, work, uStar, vStar);
 }
 
 const Field& Simulation::getU() const{
@@ -31,13 +31,21 @@ const Field& Simulation::getVStar() const{
     return vStar;
 }
 
+double Simulation::getTime() const {
+    return time;
+}    
+
+double Simulation::getDt() const {
+    return dt;
+}
+
 Field& Simulation::getU() {
     return u;
 }
 
 SolveResult Simulation::project(){
 
-    const double one_over_dt{1.0/params.dt};
+    const double one_over_dt{1.0/dt};
 
     // 1. Divergence of the predicted velocity, at cell centers
     divergence(uStar, vStar, grid, div);
@@ -55,7 +63,7 @@ SolveResult Simulation::project(){
     const SolveResult res = solver->solve(rhs, p, params.poissonTol);
 
     // 4. Correct the velocity: u = u* − dt ∇p
-    corrector(uStar, vStar, p, grid, params.dt, u, v);
+    corrector(uStar, vStar, p, grid, dt, u, v);
 
     // 5. Make the new velocity satisfy the BCs (tangential ghosts, lid)
     applyBoundaryConditions();
@@ -64,3 +72,10 @@ SolveResult Simulation::project(){
 
 }
 
+double Simulation::step(){
+    dt = (params.adaptiveDt) ? computeDt(u, v, grid, params.Re, params.cfl) : params.dt;
+    predict();
+    project();
+    time += dt;
+    return dt;              // handy for logging
+}
