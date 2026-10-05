@@ -3,9 +3,11 @@
 // Exit codes: 0 = steady state reached, 1 = bad input / error, 2 = not converged.
 
 #include "ns2d/io/config.h"
+#include "ns2d/io/vtk_writer.h"
 #include "ns2d/simulation.h"
 #include <chrono>
 #include <exception>
+#include <filesystem>
 #include <format>
 #include <iostream>
 
@@ -33,6 +35,12 @@ int main(int argc, char* argv[]) {
     try {
         const CaseConfig cfg = loadConfig(argv[1]);
         Simulation sim(cfg.grid, cfg.params);
+        std::filesystem::create_directories(cfg.outputDir);
+
+        auto writeSnapshot = [&](const std::string& name) {
+            const std::string path = std::format("{}/{}.vtk", cfg.outputDir, name);
+            writeVtk(path, cfg.grid, sim.getU(), sim.getV(), sim.getP(), sim.getTime());
+        };
 
         std::cout << std::format("Cavity {}x{}, Re = {}, steady tol = {:.1e}, max steps = {}\n",
                                  cfg.grid.getNx(), cfg.grid.getNy(), cfg.params.Re,
@@ -50,10 +58,15 @@ int main(int argc, char* argv[]) {
             if (steps % cfg.printEvery == 0 || converged) {
                 printRow(steps, info);
             }
+            if (cfg.vtkEvery > 0 && steps % cfg.vtkEvery == 0) {
+                writeSnapshot(std::format("cavity_{:06d}", steps));
+            }
             if (converged) {
                 break;
             }
         }
+
+        writeSnapshot("cavity_final");
 
         const double wallSeconds =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -67,6 +80,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << std::format("Steady state at step {}, t = {:.4f}, wall time {:.2f} s\n",
                                  steps, info.time, wallSeconds);
+        std::cout << std::format("Wrote {}/cavity_final.vtk\n", cfg.outputDir);
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << '\n';
         return 1;

@@ -50,6 +50,7 @@ class Simulation {
         const Field& getV() const;
         const Field& getUStar() const;
         const Field& getVStar() const;
+        const Field& getP() const;
         double getTime() const;
         double getDt() const;
 

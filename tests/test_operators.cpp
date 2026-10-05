@@ -274,3 +274,65 @@ TEST_CASE("Advection converges with second order", "[operators]") {
         }
     }
 }
+
+TEST_CASE("cellCenteredVelocity is exact for linear fields", "[operators]") {
+    const Grid g(5, 3, 2.0, 1.0);
+    Field u(g);
+    Field v(g);
+    fillExact(u, g, Staggering::UFace, [](double x, double) { return 3.0 * x + 1.0; });
+    fillExact(v, g, Staggering::VFace, [](double, double y) { return -2.0 * y; });
+
+    Field uc(g, -999.0);
+    Field vc(g, -999.0);
+    cellCenteredVelocity(u, v, g, uc, vc);
+
+    const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::Cell);
+    for (int j = j0; j <= j1; ++j) {
+        for (int i = i0; i <= i1; ++i) {
+            INFO("i = " << i << ", j = " << j);
+            const auto [x, y] = position(g, Staggering::Cell, i, j);
+            CHECK_THAT(uc(i, j), Catch::Matchers::WithinAbs(3.0 * x + 1.0, 1e-12));
+            CHECK_THAT(vc(i, j), Catch::Matchers::WithinAbs(-2.0 * y, 1e-12));
+        }
+    }
+    CHECK(uc(0, 1) == -999.0);   // ghosts of the output are not written
+}
+
+TEST_CASE("vorticity is exact for linear velocity fields", "[operators]") {
+    const Grid g(5, 3, 2.0, 1.0);   // dx != dy
+    Field u(g);
+    Field v(g);
+    Field omega(g, -999.0);
+
+    SECTION("solid-body rotation: w = 2") {
+        fillExact(u, g, Staggering::UFace, [](double, double y) { return -(y - 0.5); });
+        fillExact(v, g, Staggering::VFace, [](double x, double) { return x - 1.0; });
+        vorticity(u, v, g, omega);
+        for (int j = 1; j <= g.getNy(); ++j) {
+            for (int i = 1; i <= g.getNx(); ++i) {
+                INFO("i = " << i << ", j = " << j);
+                CHECK_THAT(omega(i, j), Catch::Matchers::WithinAbs(2.0, 1e-12));
+            }
+        }
+    }
+
+    SECTION("simple shear u = y: w = -1") {
+        fillExact(u, g, Staggering::UFace, [](double, double y) { return y; });
+        fillExact(v, g, Staggering::VFace, [](double, double) { return 0.0; });
+        vorticity(u, v, g, omega);
+        for (int j = 1; j <= g.getNy(); ++j) {
+            for (int i = 1; i <= g.getNx(); ++i) {
+                INFO("i = " << i << ", j = " << j);
+                CHECK_THAT(omega(i, j), Catch::Matchers::WithinAbs(-1.0, 1e-12));
+            }
+        }
+    }
+
+    SECTION("dv/dx and du/dy use the right spacing") {
+        // u = 0, v = 4x  ->  w = 4 ; catches dx/dy swaps since dx = 0.4, dy = 1/3
+        fillExact(u, g, Staggering::UFace, [](double, double) { return 0.0; });
+        fillExact(v, g, Staggering::VFace, [](double x, double) { return 4.0 * x; });
+        vorticity(u, v, g, omega);
+        CHECK_THAT(omega(3, 2), Catch::Matchers::WithinAbs(4.0, 1e-12));
+    }
+}

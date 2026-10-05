@@ -36,7 +36,7 @@ add_library(ns2d_warnings INTERFACE)
 target_compile_options(ns2d_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 target_link_libraries(ns2d PRIVATE ns2d_warnings)
 
-add_library(ns2d_io STATIC src/io/config.cpp)
+add_library(ns2d_io STATIC src/io/config.cpp src/io/vtk_writer.cpp)
 target_link_libraries(ns2d_io PUBLIC ns2d)
 target_link_libraries(ns2d_io PUBLIC nlohmann_json::nlohmann_json)
 target_link_libraries(ns2d_io PRIVATE ns2d_warnings)

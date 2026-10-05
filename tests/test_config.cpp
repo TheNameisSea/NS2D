@@ -13,7 +13,7 @@ TEST_CASE("parseConfig reads every field of a full config", "[config]") {
         "cfl": 0.3,
         "poisson": { "solver": "jacobi", "tol": 1e-9, "maxIter": 5000 },
         "steady":  { "tol": 1e-5, "maxSteps": 1234 },
-        "output":  { "printEvery": 7 }
+        "output":  { "printEvery": 7, "vtkEvery": 50, "directory": "results/run1" }
     })");
 
     const CaseConfig cfg = parseConfig(j);
@@ -34,6 +34,8 @@ TEST_CASE("parseConfig reads every field of a full config", "[config]") {
     CHECK(cfg.steadyTol == 1e-5);
     CHECK(cfg.maxSteps == 1234);
     CHECK(cfg.printEvery == 7);
+    CHECK(cfg.vtkEvery == 50);
+    CHECK(cfg.outputDir == "results/run1");
 }
 
 TEST_CASE("parseConfig fills optional fields with defaults", "[config]") {
@@ -57,6 +59,8 @@ TEST_CASE("parseConfig fills optional fields with defaults", "[config]") {
     CHECK(cfg.steadyTol > 0.0);
     CHECK(cfg.maxSteps > 0);
     CHECK(cfg.printEvery > 0);
+    CHECK(cfg.vtkEvery == 0);                   // default: only the final state
+    CHECK(cfg.outputDir == "out");
 }
 
 TEST_CASE("parseConfig rejects bad input", "[config]") {

@@ -2,6 +2,7 @@ build/
 Testing/
 *.vtk
 *.vtr
+out/
 
 CLAUDE.md
 P0_navier_stokes_solver.md

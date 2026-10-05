@@ -32,6 +32,9 @@ const Field& Simulation::getUStar() const{
 const Field& Simulation::getVStar() const{
     return vStar;
 }
+const Field& Simulation::getP() const{
+    return p;
+}
 
 double Simulation::getTime() const {
     return time;

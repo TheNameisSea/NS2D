@@ -108,3 +108,43 @@ void advectionV(const Field& u, const Field& v, const Grid& g, AdvectionScheme s
 }
 
 
+
+void cellCenteredVelocity(const Field& u, const Field& v, const Grid& g, Field& uc, Field& vc){
+
+    assert(u.size() == v.size() && u.size() == uc.size() && u.size() == vc.size());
+
+    const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::Cell);
+    for (int j = j0; j <= j1; ++j){
+        for (int i = i0; i <= i1; ++i){
+            uc(i, j) = 0.5 * (u(i-1, j) + u(i, j));
+            vc(i, j) = 0.5 * (v(i, j-1) + v(i, j));
+        }
+    }
+}
+
+void vorticity(const Field& u, const Field& v, const Grid& g, Field& omega){
+
+    assert(u.size() == v.size() && u.size() == omega.size());
+
+    const int nx = g.getNx();
+    const int ny = g.getNy();
+    const double idx = 1.0 / g.getDx();
+    const double idy = 1.0 / g.getDy();
+
+    // Corner (i, j) sits at (i*dx, j*dy) for i = 0..nx, j = 0..ny.
+    // Neighbours: v(i,j) left, v(i+1,j) right, u(i,j) below, u(i,j+1) above.
+    Field corner(g);
+    for (int j = 0; j <= ny; ++j){
+        for (int i = 0; i <= nx; ++i){
+            corner(i, j) = (v(i+1, j) - v(i, j)) * idx - (u(i, j+1) - u(i, j)) * idy;
+        }
+    }
+
+    // Cell (i, j) has corners (i-1, j-1), (i, j-1), (i-1, j), (i, j)
+    const auto [i0, i1, j0, j1] = interiorRange(g, Staggering::Cell);
+    for (int j = j0; j <= j1; ++j){
+        for (int i = i0; i <= i1; ++i){
+            omega(i, j) = 0.25 * (corner(i-1, j-1) + corner(i, j-1) + corner(i-1, j) + corner(i, j));
+        }
+    }
+}

@@ -41,5 +41,14 @@ double derivative(const Field& f, int i, int j, int di, int dj, double h, double
 void advectionU(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out);
 void advectionV(const Field& u, const Field& v, const Grid& g, AdvectionScheme scheme, Field& out);
 
+// Velocity averaged from the faces to the cell centers (Cell interior only):
+// uc(i,j) = (u(i-1,j) + u(i,j)) / 2,  vc(i,j) = (v(i,j-1) + v(i,j)) / 2
+void cellCenteredVelocity(const Field& u, const Field& v, const Grid& g, Field& uc, Field& vc);
+
+// Vorticity w = dv/dx - du/dy at the cell centers (Cell interior only).
+// Computed exactly at the cell corners from the MAC faces, then averaged over each
+// cell's 4 corners. Uses wall values and ghosts, so BCs must be applied first.
+void vorticity(const Field& u, const Field& v, const Grid& g, Field& omega);
+
 
 

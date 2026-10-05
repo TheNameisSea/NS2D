@@ -22,6 +22,8 @@ CaseConfig parseConfig(const nlohmann::json& j){
     double steadyTol = 1e-6;   
     int maxSteps = 100000;   
     int printEvery = 100;   
+    int vtkEvery = 0;
+    std::string outputDir = "out";
 
     const auto& jg = j.at("grid");                         // required section
     Grid grid( jg.at("nx").get<int>(), jg.at("ny").get<int>(),
@@ -55,9 +57,11 @@ CaseConfig parseConfig(const nlohmann::json& j){
     if (j.contains("output")){
         const auto& jo = j.at("output");
         printEvery = jo.value("printEvery", printEvery);
+        vtkEvery = jo.value("vtkEvery", vtkEvery);
+        outputDir = jo.value("directory", outputDir);
     }
 
-    return CaseConfig{ grid, prm, steadyTol, maxSteps, printEvery };
+    return CaseConfig{ grid, prm, steadyTol, maxSteps, printEvery, vtkEvery, outputDir };
 
 }
 

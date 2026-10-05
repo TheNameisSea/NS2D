@@ -10,6 +10,8 @@ struct CaseConfig {
     double steadyTol{};
     int maxSteps{};
     int printEvery{};
+    int vtkEvery{};                 // write a VTK file every N steps; 0 = only the final state
+    std::string outputDir{"out"};   // folder for VTK output
 };
 
 CaseConfig parseConfig(const nlohmann::json& j);   // all the work; testable from a string
