@@ -305,3 +305,16 @@ SolveResult PCGSolver::solve(const Field& rhs, Field& p, double tol) {
 
 }
 
+std::unique_ptr<PoissonSolver> makePoissonSolver(PoissonSolverType type, const Grid& g, int maxIterations){
+    switch (type)
+    {
+    case PoissonSolverType::PCG: {
+        return std::make_unique<PCGSolver>(g, maxIterations);
+    }
+    case PoissonSolverType::Jacobi: {
+        return std::make_unique<JacobiSolver>(g, maxIterations);
+    }
+    }
+
+    throw std::invalid_argument("Unknown solver");
+}

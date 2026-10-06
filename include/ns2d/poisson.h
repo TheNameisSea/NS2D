@@ -2,6 +2,7 @@
 #include "ns2d/grid.h"
 #include "ns2d/field.h"
 #include "ns2d/operators.h"
+#include <memory> 
 
 
 struct SolveResult { int iterations{}; double residual{}; };
@@ -47,4 +48,11 @@ class PCGSolver : public PoissonSolver {
         Field r;        // Laplacian/residual work field
         Field z, d, Ad, invDiag;
 };
+
+enum class PoissonSolverType { 
+    Jacobi, 
+    PCG 
+};
+
+std::unique_ptr<PoissonSolver> makePoissonSolver(PoissonSolverType type, const Grid& g, int maxIterations);
 

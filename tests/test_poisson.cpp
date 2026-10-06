@@ -67,18 +67,8 @@ double exactRhs(double x, double y) {
     return -2.0 * pi * pi * exactP(x, y);
 }
 
-enum class SolverKind { Jacobi, PCG };
-
-const char* name(SolverKind kind) {
-    return kind == SolverKind::Jacobi ? "Jacobi" : "PCG";
-}
-
-std::unique_ptr<PoissonSolver> makeSolver(SolverKind kind, const Grid& g, int maxIter) {
-    switch (kind) {
-        case SolverKind::Jacobi: return std::make_unique<JacobiSolver>(g, maxIter);
-        case SolverKind::PCG:    return std::make_unique<PCGSolver>(g, maxIter);
-    }
-    return nullptr;
+const char* name(PoissonSolverType type) {
+    return type == PoissonSolverType::Jacobi ? "Jacobi" : "PCG";
 }
 
 struct PoissonRun {
@@ -88,7 +78,7 @@ struct PoissonRun {
 };
 
 // Solve the manufactured problem on an N x N unit square through the PoissonSolver interface
-PoissonRun runManufactured(SolverKind kind, int N, double tol) {
+PoissonRun runManufactured(PoissonSolverType kind, int N, double tol) {
     const Grid g(N, N, 1.0, 1.0);
     Field rhs(g);
     Field p(g, 0.0);
@@ -98,7 +88,7 @@ PoissonRun runManufactured(SolverKind kind, int N, double tol) {
         }
     }
 
-    const auto solver = makeSolver(kind, g, 200000);
+    const auto solver = makePoissonSolver(kind, g, 200000);
     const SolveResult res = solver->solve(rhs, p, tol);
 
     // The solver fixes mean(p) = 0, so compare against the exact solution with its mean removed
@@ -160,7 +150,7 @@ double trueResidual(const Field& rhs, Field p, const Grid& g) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Poisson solvers converge to the manufactured solution", "[poisson]") {
-    const SolverKind kind = GENERATE(SolverKind::Jacobi, SolverKind::PCG);
+    const PoissonSolverType kind = GENERATE(PoissonSolverType::Jacobi, PoissonSolverType::PCG);
     const double tol = 1e-10;
     const PoissonRun run = runManufactured(kind, 16, tol);
     INFO(name(kind) << ": iterations = " << run.result.iterations
@@ -174,7 +164,7 @@ TEST_CASE("Poisson solvers converge to the manufactured solution", "[poisson]") 
 }
 
 TEST_CASE("Poisson solutions converge with second order in space", "[poisson]") {
-    const SolverKind kind = GENERATE(SolverKind::Jacobi, SolverKind::PCG);
+    const PoissonSolverType kind = GENERATE(PoissonSolverType::Jacobi, PoissonSolverType::PCG);
     const double tol = 1e-10;
     const double e8 = runManufactured(kind, 8, tol).maxError;
     const double e16 = runManufactured(kind, 16, tol).maxError;
@@ -186,12 +176,12 @@ TEST_CASE("Poisson solutions converge with second order in space", "[poisson]") 
 }
 
 TEST_CASE("Poisson solvers with zero right-hand side return p = 0 immediately", "[poisson]") {
-    const SolverKind kind = GENERATE(SolverKind::Jacobi, SolverKind::PCG);
+    const PoissonSolverType kind = GENERATE(PoissonSolverType::Jacobi, PoissonSolverType::PCG);
     INFO(name(kind));
     const Grid g(6, 4, 2.0, 1.0);
     const Field rhs(g, 0.0);
     Field p(g, 3.0);
-    const auto solver = makeSolver(kind, g, 1000);
+    const auto solver = makePoissonSolver(kind, g, 1000);
 
     const SolveResult res = solver->solve(rhs, p, 1e-10);
 
@@ -205,7 +195,7 @@ TEST_CASE("Poisson solvers with zero right-hand side return p = 0 immediately", 
 
 TEST_CASE("Poisson solvers remove a constant offset in the right-hand side", "[poisson]") {
     // rhs + c is not solvable with pure Neumann BCs; the solver must subtract the mean
-    const SolverKind kind = GENERATE(SolverKind::Jacobi, SolverKind::PCG);
+    const PoissonSolverType kind = GENERATE(PoissonSolverType::Jacobi, PoissonSolverType::PCG);
     const int N = 16;
     const Grid g(N, N, 1.0, 1.0);
     Field rhs(g);
@@ -215,7 +205,7 @@ TEST_CASE("Poisson solvers remove a constant offset in the right-hand side", "[p
         }
     }
     Field p(g, 0.0);
-    const auto solver = makeSolver(kind, g, 200000);
+    const auto solver = makePoissonSolver(kind, g, 200000);
     const SolveResult res = solver->solve(rhs, p, 1e-10);
     INFO(name(kind) << ": iterations = " << res.iterations << ", residual = " << res.residual);
 
@@ -225,11 +215,11 @@ TEST_CASE("Poisson solvers remove a constant offset in the right-hand side", "[p
 
 TEST_CASE("Poisson solvers solve a random right-hand side on a non-square grid", "[poisson]") {
     // A random rhs mixes all modes, so it is a much harder test than one eigenvector
-    const SolverKind kind = GENERATE(SolverKind::Jacobi, SolverKind::PCG);
+    const PoissonSolverType kind = GENERATE(PoissonSolverType::Jacobi, PoissonSolverType::PCG);
     const Grid g(12, 8, 1.5, 1.0);
     const Field rhs = randomRhs(g, 7);
     Field p(g, 0.0);
-    const auto solver = makeSolver(kind, g, 200000);
+    const auto solver = makePoissonSolver(kind, g, 200000);
 
     const SolveResult res = solver->solve(rhs, p, 1e-10);
     const double trueRes = trueResidual(rhs, p, g);
@@ -239,6 +229,19 @@ TEST_CASE("Poisson solvers solve a random right-hand side on a non-square grid",
     CHECK(res.residual < 1e-10);
     CHECK(trueRes < 1e-9);                              // the answer really solves the system
     CHECK_THAT(interiorMean(p, g), Catch::Matchers::WithinAbs(0.0, 1e-12));
+}
+
+TEST_CASE("makePoissonSolver builds the requested solver type", "[poisson]") {
+    const Grid g(8, 8, 1.0, 1.0);
+    const auto jacobi = makePoissonSolver(PoissonSolverType::Jacobi, g, 100);
+    const auto pcg = makePoissonSolver(PoissonSolverType::PCG, g, 100);
+
+    REQUIRE(jacobi != nullptr);
+    REQUIRE(pcg != nullptr);
+    // dynamic_cast to the derived class succeeds only if the object really is of that type
+    CHECK(dynamic_cast<JacobiSolver*>(jacobi.get()) != nullptr);
+    CHECK(dynamic_cast<PCGSolver*>(pcg.get()) != nullptr);
+    CHECK(dynamic_cast<PCGSolver*>(jacobi.get()) == nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +264,8 @@ TEST_CASE("interiorDot sums products over interior cells only", "[poisson]") {
 }
 
 TEST_CASE("PCG needs far fewer iterations than Jacobi", "[poisson]") {
-    const int jacobiIt = runManufactured(SolverKind::Jacobi, 16, 1e-10).result.iterations;
-    const int pcgIt = runManufactured(SolverKind::PCG, 16, 1e-10).result.iterations;
+    const int jacobiIt = runManufactured(PoissonSolverType::Jacobi, 16, 1e-10).result.iterations;
+    const int pcgIt = runManufactured(PoissonSolverType::PCG, 16, 1e-10).result.iterations;
     INFO("Jacobi " << jacobiIt << ", PCG " << pcgIt);   // reference: 1190 vs 30
 
     CHECK(pcgIt <= 60);

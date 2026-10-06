@@ -4,6 +4,7 @@
 #include <cmath>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <catch2/catch_approx.hpp>
 
 TEST_CASE("Simulation applies the lid BC on construction", "[simulation]") {
     const Grid g(8, 8, 1.0, 1.0);
@@ -197,4 +198,58 @@ TEST_CASE("Cavity at Re = 100 reaches a steady state with a primary vortex", "[s
     CHECK(uMin < -0.1);
     CHECK(g.yp(jMin) < 0.5);
     CHECK(u(ic, g.getNy()) > 0.0);              // top row moves with the lid
+}
+
+TEST_CASE("Simulation uses the Poisson solver chosen in SimulationParams", "[simulation]") {
+    const Grid g(16, 16, 1.0, 1.0);
+    SimulationParams jacobiParams{};
+    jacobiParams.poissonSolver = PoissonSolverType::Jacobi;
+    SimulationParams pcgParams{};
+    pcgParams.poissonSolver = PoissonSolverType::PCG;
+
+    Simulation jacobi(g, jacobiParams);
+    Simulation pcg(g, pcgParams);
+    const StepInfo jacobiInfo = jacobi.step();
+    const StepInfo pcgInfo = pcg.step();
+    INFO("first step: Jacobi " << jacobiInfo.poissonIterations
+         << " iterations, PCG " << pcgInfo.poissonIterations);
+
+    // Both converge; the iteration counts show which solver actually ran
+    CHECK(jacobiInfo.poissonResidual < jacobiParams.poissonTol);
+    CHECK(pcgInfo.poissonResidual < pcgParams.poissonTol);
+    CHECK(5 * pcgInfo.poissonIterations < jacobiInfo.poissonIterations);
+}
+
+TEST_CASE("Jacobi and PCG produce the same flow", "[simulation]") {
+    const Grid g(16, 16, 1.0, 1.0);
+    SimulationParams params{};
+    params.poissonTol = 1e-10;                  // tight, so solver differences are tiny
+
+    params.poissonSolver = PoissonSolverType::Jacobi;
+    Simulation jacobi(g, params);
+    params.poissonSolver = PoissonSolverType::PCG;
+    Simulation pcg(g, params);
+
+    for (int n = 0; n < 50; ++n) {
+        jacobi.step();
+        pcg.step();
+    }
+
+    auto maxDiff = [&g](const Field& a, const Field& b, Staggering s) {
+        const auto [i0, i1, j0, j1] = interiorRange(g, s);
+        double d = 0.0;
+        for (int j = j0; j <= j1; ++j) {
+            for (int i = i0; i <= i1; ++i) {
+                d = std::max(d, std::abs(a(i, j) - b(i, j)));
+            }
+        }
+        return d;
+    };
+    const double du = maxDiff(jacobi.getU(), pcg.getU(), Staggering::UFace);
+    const double dv = maxDiff(jacobi.getV(), pcg.getV(), Staggering::VFace);
+    INFO("after 50 steps: max|du| = " << du << ", max|dv| = " << dv);
+
+    CHECK(jacobi.getTime() == Catch::Approx(pcg.getTime()).epsilon(1e-8));
+    CHECK(du < 1e-7);
+    CHECK(dv < 1e-7);
 }

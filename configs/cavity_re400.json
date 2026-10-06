@@ -1,10 +1,10 @@
 {
   "grid":    { "nx": 64, "ny": 64, "Lx": 1.0, "Ly": 1.0 },
-  "Re": 100,
+  "Re": 400,
   "lidVelocity": 1.0,
   "scheme": "upwind2",
   "cfl": 0.25,
   "poisson": { "solver": "pcg", "tol": 1e-8, "maxIter": 100000 },
-  "steady":  { "tol": 1e-6, "maxSteps": 200000 },
-  "output":  { "printEvery": 1000, "vtkEvery": 200, "directory": "out/cavity_re100" }
+  "steady":  { "tol": 1e-6, "maxSteps": 400000 },
+  "output":  { "printEvery": 1000, "vtkEvery": 5000, "directory": "out/cavity_re400" }
 }

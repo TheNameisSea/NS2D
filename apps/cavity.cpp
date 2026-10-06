@@ -3,6 +3,7 @@
 // Exit codes: 0 = steady state reached, 1 = bad input / error, 2 = not converged.
 
 #include "ns2d/io/config.h"
+#include "ns2d/io/summary.h"
 #include "ns2d/io/vtk_writer.h"
 #include "ns2d/simulation.h"
 #include <chrono>
@@ -71,6 +72,20 @@ int main(int argc, char* argv[]) {
         const double wallSeconds =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
+        // The loop leaves steps = maxSteps + 1 when it runs out without converging
+        const int stepsTaken = converged ? steps : cfg.maxSteps;
+        writeSummary(std::format("{}/summary.json", cfg.outputDir),
+                     RunSummary{
+                         .Re = cfg.params.Re,
+                         .nx = cfg.grid.getNx(),
+                         .ny = cfg.grid.getNy(),
+                         .converged = converged,
+                         .steps = stepsTaken,
+                         .time = info.time,
+                         .wallSeconds = wallSeconds,
+                         .finalChange = info.change,
+                     });
+
         if (!converged) {
             std::cerr << std::format("Not converged after {} steps (change = {:.3e} > {:.1e}), "
                                      "wall time {:.2f} s\n",
@@ -80,7 +95,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << std::format("Steady state at step {}, t = {:.4f}, wall time {:.2f} s\n",
                                  steps, info.time, wallSeconds);
-        std::cout << std::format("Wrote {}/cavity_final.vtk\n", cfg.outputDir);
+        std::cout << std::format("Wrote {0}/cavity_final.vtk and {0}/summary.json\n", cfg.outputDir);
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << '\n';
         return 1;

@@ -14,6 +14,17 @@ namespace {
         }
         throw std::invalid_argument("unknown advection scheme: " + s);
     }
+
+    PoissonSolverType solverFromString(const std::string& s){
+        if (s == "jacobi"){
+            return PoissonSolverType::Jacobi;
+        }
+        if (s == "pcg"){
+            return PoissonSolverType::PCG;
+        }
+        throw std::invalid_argument("unknown solver: " + s);
+    }
+
 }
 
 CaseConfig parseConfig(const nlohmann::json& j){
@@ -40,11 +51,7 @@ CaseConfig parseConfig(const nlohmann::json& j){
         const auto& jp = j.at("poisson");
         prm.poissonTol = jp.value("tol", prm.poissonTol);
         prm.poissonMaxIter = jp.value("maxIter", prm.poissonMaxIter);
-        if (jp.value("solver", std::string{"jacobi"}) != "jacobi"){
-            throw std::invalid_argument("Invalid solver type");
-        }
-        
-
+        prm.poissonSolver = solverFromString(jp.value("solver", std::string{"pcg"}));
     }
     
     if (j.contains("steady")){                                   // j.contains("poisson")

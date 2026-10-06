@@ -5,7 +5,7 @@
 Simulation::Simulation(const Grid& grid_, const SimulationParams& params_) 
                         : grid(grid_), params(params_), u(grid), v(grid), p(grid),
                         uOld(grid), vOld(grid), uStar(grid), vStar(grid), div(grid), rhs(grid), work(grid), 
-                        solver(std::make_unique<JacobiSolver>(grid, params.poissonMaxIter)), dt(params.dt){
+                        solver(makePoissonSolver(params.poissonSolver, grid, params.poissonMaxIter)), dt(params.dt){
 
     applyBoundaryConditions();
 

@@ -5,15 +5,17 @@
 #include "ns2d/poisson.h"
 #include <memory>
 
+
 struct SimulationParams {
     double Re{100.0};
     double dt{0.001};
     AdvectionScheme scheme{AdvectionScheme::Upwind2};
     BoundaryConditions bc{ .top = 1.0 };    // lid-driven cavity by default
+    PoissonSolverType poissonSolver{PoissonSolverType::PCG};
     int poissonMaxIter{100000};
     double poissonTol{1e-8};
     bool adaptiveDt{true};
-    double cfl{0.5};
+    double cfl{0.25};
 };
 
 
@@ -59,7 +61,6 @@ class Simulation {
         StepInfo step();
 
 };
-
 
 
 

@@ -33,4 +33,5 @@ ns2d_add_test(test_simulation ns2d)
 # I/O library tests
 ns2d_add_test(test_config ns2d_io)
 target_compile_definitions(test_config PRIVATE NS2D_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-ns2d_add_test(test_vtk    ns2d_io)
+ns2d_add_test(test_vtk     ns2d_io)
+ns2d_add_test(test_summary ns2d_io)
